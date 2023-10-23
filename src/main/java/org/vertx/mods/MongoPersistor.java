@@ -17,10 +17,7 @@
 package org.vertx.mods;
 
 import com.mongodb.*;
-import com.mongodb.util.JSON;
-
 import io.vertx.core.Handler;
-import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -106,8 +103,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       logger.error("Failed to connect to mongo server", e);
     }
     eb.consumer(address, this);
-
-    vertx.deployVerticle(new MongoPersistorController());
   }
 
   private List<ServerAddress> makeSeeds(JsonArray seedsProperty) throws UnknownHostException {
