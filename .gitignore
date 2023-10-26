@@ -10,4 +10,5 @@ bin
 build
 out
 /mods
-gradle*
+gradle
+gradlew*
