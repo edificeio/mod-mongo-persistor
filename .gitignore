@@ -12,3 +12,6 @@ out
 /mods
 gradle
 gradlew*
+.env
+dependency-reduced-pom.xml
+target
