@@ -16,7 +16,7 @@
   <properties>
     <web-utils.version>3.0-b2school-SNAPSHOT</web-utils.version>
     <jacksonDatabindVersion>2.15.2</jacksonDatabindVersion>
-    <mongo.version>3.12.8</mongo.version>
+    <mongo.version>3.12.14</mongo.version>
   </properties>
 
   <scm>
