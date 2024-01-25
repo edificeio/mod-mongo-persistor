@@ -25,7 +25,6 @@ import io.vertx.core.json.JsonObject;
 import org.apache.commons.lang3.StringUtils;
 import org.vertx.java.busmods.BusModBase;
 
-import javax.net.ssl.SSLSocketFactory;
 import java.net.UnknownHostException;
 import java.util.*;
 
@@ -50,9 +49,8 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   protected int socketTimeout;
   protected boolean useSSL;
 
-  protected Mongo mongo;
+  protected MongoClient mongo;
   protected DB db;
-  private boolean useMongoTypes;
 
   @Override
   public void start() {
@@ -70,7 +68,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     int poolSize = getOptionalIntConfig("pool_size", 10);
     socketTimeout = getOptionalIntConfig("socket_timeout", 60000);
     useSSL = getOptionalBooleanConfig("use_ssl", false);
-    useMongoTypes = getOptionalBooleanConfig("use_mongo_types", false);
 
     JsonArray seedsProperty = config.getJsonArray("seeds");
 
@@ -81,20 +78,28 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       builder.readPreference(readPreference);
 
       if (useSSL) {
-        builder.socketFactory(SSLSocketFactory.getDefault());
+        builder.sslEnabled(true);
       }
 
-      final List<MongoCredential> credentials = new ArrayList<>();
       if (username != null && password != null && dbAuth != null) {
-        credentials.add(MongoCredential.createScramSha1Credential(username, dbAuth, password.toCharArray()));
-      }
+        MongoCredential credential = MongoCredential.createScramSha256Credential(username, dbAuth, password.toCharArray());
 
-      if (seedsProperty == null) {
-        ServerAddress address = new ServerAddress(host, port);
-        mongo = new MongoClient(address, credentials, builder.build());
-      } else {
-        List<ServerAddress> seeds = makeSeeds(seedsProperty);
-        mongo = new MongoClient(seeds, credentials, builder.build());
+        if (seedsProperty == null) {
+          ServerAddress address = new ServerAddress(host, port);
+          mongo = new MongoClient(address, credential, builder.build());
+        } else {
+          List<ServerAddress> seeds = makeSeeds(seedsProperty);
+          mongo = new MongoClient(seeds, credential, builder.build());
+        }
+      }
+      else {
+        if (seedsProperty == null) {
+          ServerAddress address = new ServerAddress(host, port);
+          mongo = new MongoClient(address, builder.build());
+        } else {
+          List<ServerAddress> seeds = makeSeeds(seedsProperty);
+          mongo = new MongoClient(seeds, builder.build());
+        }
       }
 
       db = mongo.getDB(dbName);
@@ -254,7 +259,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     if (writeConcern == null) {
       writeConcern = db.getWriteConcern();
     }
-    writeConcern = WriteConcern.SAFE;
+    writeConcern = WriteConcern.ACKNOWLEDGED;
     try {
       WriteResult res = coll.insert(dbos, writeConcern);
       JsonObject reply = new JsonObject();
@@ -669,14 +674,17 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     List<DBObject> pipelines = jsonPipelinesToDbObjects(pipelinesAsJson);
 
     DBCollection dbCollection = db.getCollection(collection);
-    // v2.11.1 of the driver has an inefficient method signature in terms
-    // of parameters, so we have to remove the first one
-    DBObject firstPipelineOp = pipelines.remove(0);
-    AggregationOutput aggregationOutput = dbCollection.aggregate(firstPipelineOp, pipelines.toArray(new DBObject[] {}));
+//    // v2.11.1 of the driver has an inefficient method signature in terms
+//    // of parameters, so we have to remove the first one
+//    DBObject firstPipelineOp = pipelines.remove(0);
+    AggregationOptions.Builder builder = AggregationOptions.builder();
+    builder.allowDiskUse(true);
+
+    Cursor aggregationOutput = dbCollection.aggregate(pipelines, builder.build());
 
     JsonArray results = new JsonArray();
-    for (DBObject dbObject : aggregationOutput.results()) {
-      results.add(dbObjectToJsonObject(dbObject));
+    while (aggregationOutput.hasNext()) {
+      results.add(dbObjectToJsonObject(aggregationOutput.next()));
     }
 
     JsonObject reply = new JsonObject();
@@ -757,19 +765,11 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   }
 
   private JsonObject dbObjectToJsonObject(DBObject obj) {
-    if (useMongoTypes) {
-      return MongoUtil.convertBsonToJson(obj);
-    } else {
-      return new JsonObject(obj.toMap());
-    }
+    return MongoUtil.convertBsonToJson(obj);
   }
 
   private DBObject jsonToDBObject(JsonObject object) {
-    if (useMongoTypes) {
-      return MongoUtil.convertJsonToBson(object);
-    } else {
-      return new BasicDBObject(object.getMap());
-    }
+    return MongoUtil.convertJsonToBson(object);
   }
 
   private DBObject jsonToDBObjectNullSafe(JsonObject object) {
