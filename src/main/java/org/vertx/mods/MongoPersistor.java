@@ -50,7 +50,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   protected int socketTimeout;
   protected boolean useSSL;
 
-  protected Mongo mongo;
+  protected MongoClient mongo;
   protected DB db;
   private boolean useMongoTypes;
 
@@ -81,20 +81,28 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       builder.readPreference(readPreference);
 
       if (useSSL) {
-        builder.socketFactory(SSLSocketFactory.getDefault());
+        builder.sslEnabled(true);
       }
 
-      final List<MongoCredential> credentials = new ArrayList<>();
       if (username != null && password != null && dbAuth != null) {
-        credentials.add(MongoCredential.createScramSha1Credential(username, dbAuth, password.toCharArray()));
-      }
+        MongoCredential credential = MongoCredential.createCredential(username, dbAuth, password.toCharArray());
 
-      if (seedsProperty == null) {
-        ServerAddress address = new ServerAddress(host, port);
-        mongo = new MongoClient(address, credentials, builder.build());
-      } else {
-        List<ServerAddress> seeds = makeSeeds(seedsProperty);
-        mongo = new MongoClient(seeds, credentials, builder.build());
+        if (seedsProperty == null) {
+          ServerAddress address = new ServerAddress(host, port);
+          mongo = new MongoClient(address, credential, builder.build());
+        } else {
+          List<ServerAddress> seeds = makeSeeds(seedsProperty);
+          mongo = new MongoClient(seeds, credential, builder.build());
+        }
+      }
+      else {
+        if (seedsProperty == null) {
+          ServerAddress address = new ServerAddress(host, port);
+          mongo = new MongoClient(address, builder.build());
+        } else {
+          List<ServerAddress> seeds = makeSeeds(seedsProperty);
+          mongo = new MongoClient(seeds, builder.build());
+        }
       }
 
       db = mongo.getDB(dbName);
@@ -254,7 +262,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     if (writeConcern == null) {
       writeConcern = db.getWriteConcern();
     }
-    writeConcern = WriteConcern.SAFE;
+    writeConcern = WriteConcern.ACKNOWLEDGED;
     try {
       WriteResult res = coll.insert(dbos, writeConcern);
       JsonObject reply = new JsonObject();
@@ -669,14 +677,17 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     List<DBObject> pipelines = jsonPipelinesToDbObjects(pipelinesAsJson);
 
     DBCollection dbCollection = db.getCollection(collection);
-    // v2.11.1 of the driver has an inefficient method signature in terms
-    // of parameters, so we have to remove the first one
-    DBObject firstPipelineOp = pipelines.remove(0);
-    AggregationOutput aggregationOutput = dbCollection.aggregate(firstPipelineOp, pipelines.toArray(new DBObject[] {}));
+//    // v2.11.1 of the driver has an inefficient method signature in terms
+//    // of parameters, so we have to remove the first one
+//    DBObject firstPipelineOp = pipelines.remove(0);
+    AggregationOptions.Builder builder = AggregationOptions.builder();
+    builder.allowDiskUse(true);
+
+    Cursor aggregationOutput = dbCollection.aggregate(pipelines, builder.build());
 
     JsonArray results = new JsonArray();
-    for (DBObject dbObject : aggregationOutput.results()) {
-      results.add(dbObjectToJsonObject(dbObject));
+    while (aggregationOutput.hasNext()) {
+      results.add(dbObjectToJsonObject(aggregationOutput.next()));
     }
 
     JsonObject reply = new JsonObject();

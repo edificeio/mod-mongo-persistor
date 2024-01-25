@@ -16,9 +16,7 @@
 
 package org.vertx.mods;
 
-import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
-import com.mongodb.util.JSONSerializers;
+import com.mongodb.*;
 import io.vertx.core.json.JsonObject;
 
 import java.util.HashMap;
@@ -56,7 +54,7 @@ public class MongoUtil {
             throw new IllegalArgumentException("Cannot convert empty string to DBObject");
         }
 
-        return  (DBObject) JSON.parse(json);
+        return  (DBObject) BasicDBObject.parse(json);
     }
 
     /**
@@ -70,11 +68,7 @@ public class MongoUtil {
             throw new IllegalArgumentException("Cannot convert null to JsonObject");
         }
 
-        // Create JSON string from DBObject
-        String serialize = JSONSerializers.getStrict().serialize(dbObject);
-
         // Convert to JsonObject
-        //HashMap<String, Object> jsonMap = Json.decodeValue(serialize, HashMap.class);
-        return new JsonObject(serialize);
+        return new JsonObject(dbObject.toMap());
     }
 }

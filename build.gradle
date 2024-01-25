@@ -45,17 +45,18 @@ targetCompatibility = 1.8
 
 compileJava {
   sourceCompatibility = project.sourceCompatibility
-    targetCompatibility = project.targetCompatibility
+  targetCompatibility = project.targetCompatibility
 }
 
 compileTestJava {
   sourceCompatibility = project.sourceCompatibility
-    targetCompatibility = project.targetCompatibility
+  targetCompatibility = project.targetCompatibility
 }
 dependencies {
   compileOnly "io.vertx:vertx-core:$vertxVersion"
   compile "fr.wseduc:web-utils:$webutilsVersion"
-  compile "org.mongodb:mongo-java-driver:$mongoVersion"
+  compile "org.mongodb:mongodb-driver-legacy:$mongoVersion"
+  compile "org.mongodb:mongodb-driver-core:$mongoVersion"
 }
 
 jar {
