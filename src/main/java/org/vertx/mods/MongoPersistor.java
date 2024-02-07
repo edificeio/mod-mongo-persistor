@@ -25,7 +25,6 @@ import io.vertx.core.json.JsonObject;
 import org.apache.commons.lang3.StringUtils;
 import org.vertx.java.busmods.BusModBase;
 
-import javax.net.ssl.SSLSocketFactory;
 import java.net.UnknownHostException;
 import java.util.*;
 
@@ -52,7 +51,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
 
   protected MongoClient mongo;
   protected DB db;
-  private boolean useMongoTypes;
 
   @Override
   public void start() {
@@ -70,7 +68,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     int poolSize = getOptionalIntConfig("pool_size", 10);
     socketTimeout = getOptionalIntConfig("socket_timeout", 60000);
     useSSL = getOptionalBooleanConfig("use_ssl", false);
-    useMongoTypes = getOptionalBooleanConfig("use_mongo_types", false);
 
     JsonArray seedsProperty = config.getJsonArray("seeds");
 
@@ -768,19 +765,11 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   }
 
   private JsonObject dbObjectToJsonObject(DBObject obj) {
-    if (useMongoTypes) {
-      return MongoUtil.convertBsonToJson(obj);
-    } else {
-      return new JsonObject(obj.toMap());
-    }
+    return MongoUtil.convertBsonToJson(obj);
   }
 
   private DBObject jsonToDBObject(JsonObject object) {
-    if (useMongoTypes) {
-      return MongoUtil.convertJsonToBson(object);
-    } else {
-      return new BasicDBObject(object.getMap());
-    }
+    return MongoUtil.convertJsonToBson(object);
   }
 
   private DBObject jsonToDBObjectNullSafe(JsonObject object) {

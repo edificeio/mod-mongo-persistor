@@ -18,6 +18,8 @@ package org.vertx.mods;
 
 import com.mongodb.*;
 import io.vertx.core.json.JsonObject;
+import org.bson.json.JsonMode;
+import org.bson.json.JsonWriterSettings;
 
 import java.util.HashMap;
 
@@ -54,7 +56,7 @@ public class MongoUtil {
             throw new IllegalArgumentException("Cannot convert empty string to DBObject");
         }
 
-        return  (DBObject) BasicDBObject.parse(json);
+        return  BasicDBObject.parse(json);
     }
 
     /**
@@ -68,7 +70,10 @@ public class MongoUtil {
             throw new IllegalArgumentException("Cannot convert null to JsonObject");
         }
 
+        final JsonWriterSettings.Builder jws = JsonWriterSettings.builder();
+        jws.outputMode(JsonMode.STRICT);
+
         // Convert to JsonObject
-        return new JsonObject(dbObject.toMap());
+        return new JsonObject(((BasicDBObject) dbObject).toJson(jws.build()));
     }
 }
