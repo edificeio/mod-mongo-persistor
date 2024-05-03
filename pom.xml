@@ -16,7 +16,7 @@
   <properties>
     <web-utils.version>3.0-b2school-SNAPSHOT</web-utils.version>
     <jacksonDatabindVersion>2.15.2</jacksonDatabindVersion>
-    <mongo.version>3.12.14</mongo.version>
+    <mongo.version>4.8.1</mongo.version>
   </properties>
 
   <scm>
@@ -53,10 +53,11 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.mongodb</groupId>
-      <artifactId>mongo-java-driver</artifactId>
-      <version>${mongo.version}</version>
-      <scope>compile</scope>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-mongo-client</artifactId>
+      <version>${vertxVersion}</version>
     </dependency>
+
+
   </dependencies>
 </project>
