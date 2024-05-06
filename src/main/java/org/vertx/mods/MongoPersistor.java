@@ -18,7 +18,6 @@ package org.vertx.mods;
 
 import com.mongodb.DBRef;
 import com.mongodb.ReadPreference;
-import com.mongodb.WriteConcern;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -55,6 +54,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   protected MongoClient mongo;
   //protected MongoDatabase db;
   private boolean useMongoTypes;
+  private WriteOption defaultWriteConcern = WriteOption.ACKNOWLEDGED;
 
   @Override
   public void start() {
@@ -74,6 +74,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     socketTimeout = getOptionalIntConfig("socket_timeout", 60000);
     useSSL = getOptionalBooleanConfig("use_ssl", false);*/
     useMongoTypes = getOptionalBooleanConfig("use_mongo_types", false);
+    defaultWriteConcern = WriteOption.valueOf(getOptionalStringConfig("write_concern", WriteOption.ACKNOWLEDGED.name()));
 
     JsonArray seedsProperty = config.getJsonArray("seeds");
 
@@ -204,9 +205,9 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   }
 
   private @Nullable WriteOption getWriteConcern() {
-    return getWriteConcern(null);
+    return getWriteConcern(defaultWriteConcern);
   }
-  private @Nullable WriteOption getWriteConcern(final @Nullable WriteOption defaultWriteConcern) {
+  private @Nullable WriteOption getWriteConcern(final WriteOption defaultWriteConcern) {
     Optional<String> writeConcern = getStringConfig("writeConcern");
     if(!writeConcern.isPresent()) {
       writeConcern = getStringConfig("write_concern");
@@ -242,7 +243,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       operations.add(BulkOperation.createInsert(doc));
     }
     try {
-      return mongo.bulkWriteWithOptions(collection, operations, new BulkWriteOptions().setWriteOption(WriteOption.REPLICA_ACKNOWLEDGED))
+      return mongo.bulkWriteWithOptions(collection, operations, new BulkWriteOptions().setWriteOption(WriteOption.ACKNOWLEDGED))
         .onFailure(th -> sendError(message, th.getMessage(), th))
         .onSuccess(res -> {
           JsonObject reply = new JsonObject();
