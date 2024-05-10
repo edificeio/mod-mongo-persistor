@@ -654,12 +654,12 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
 
   private Future<Void> runCommand(Message<JsonObject> message) {
     JsonObject reply = new JsonObject();
-    String command = getMandatoryString("command", message);
-
-    if (command == null) {
+    final String commandRaw = getMandatoryString("command", message);
+    if (commandRaw == null) {
       return Future.failedFuture("command.mandatory");
     }
-    return mongo.runCommand(command, new JsonObject())
+    final JsonObject command = new JsonObject(commandRaw);
+    return getCommandName(command).map(commandName -> mongo.runCommand(commandName, command)
       .onFailure(th -> sendError(message, th))
       .onSuccess(result -> {
         result.remove("operationTime");
@@ -668,8 +668,12 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
         result.remove("electionId");
         reply.put("result", result);
         sendOK(message, reply);
-      })
-      .mapEmpty();
+      })).orElseGet(() -> Future.failedFuture("command.name.mandatory"))
+    .mapEmpty();
+  }
+
+  private Optional<String> getCommandName(final JsonObject command) {
+    return command.fieldNames().stream().findFirst();
   }
 
 }
