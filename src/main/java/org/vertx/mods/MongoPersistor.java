@@ -658,18 +658,23 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     if (commandRaw == null) {
       return Future.failedFuture("command.mandatory");
     }
-    final JsonObject command = new JsonObject(commandRaw);
-    return getCommandName(command).map(commandName -> mongo.runCommand(commandName, command)
-      .onFailure(th -> sendError(message, th))
-      .onSuccess(result -> {
-        result.remove("operationTime");
-        result.remove("$clusterTime");
-        result.remove("opTime");
-        result.remove("electionId");
-        reply.put("result", result);
-        sendOK(message, reply);
-      })).orElseGet(() -> Future.failedFuture("command.name.mandatory"))
-    .mapEmpty();
+    try {
+      final JsonObject command = new JsonObject(commandRaw);
+      return getCommandName(command).map(commandName -> mongo.runCommand(commandName, command)
+          .onFailure(th -> sendError(message, th))
+          .onSuccess(result -> {
+            result.remove("operationTime");
+            result.remove("$clusterTime");
+            result.remove("opTime");
+            result.remove("electionId");
+            reply.put("result", result);
+            sendOK(message, reply);
+          })).orElseGet(() -> Future.failedFuture("command.name.mandatory"))
+        .mapEmpty();
+    } catch (Exception th) {
+      sendError(message, th);
+      return Future.failedFuture(th);
+    }
   }
 
   private Optional<String> getCommandName(final JsonObject command) {
