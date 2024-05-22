@@ -559,9 +559,9 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     final JsonObject matcher = message.body().getJsonObject("matcher");
     final Future<JsonArray> future;
     if(matcher == null) {
-      future = mongo.distinct(collection, key, String.class.getCanonicalName());
+      future = mongo.distinct(collection, key, String.class.getName());
     } else {
-      future = mongo.distinctWithQuery(collection, key, Object.class.getCanonicalName(), matcher);
+      future = mongo.distinctWithQuery(collection, key, String.class.getName(), matcher);
     }
     return future.
       onFailure(th -> sendError(message, th.getMessage(), th))
