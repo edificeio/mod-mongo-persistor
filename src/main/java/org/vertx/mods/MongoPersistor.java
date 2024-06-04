@@ -16,7 +16,6 @@
 
 package org.vertx.mods;
 
-import com.mongodb.DBRef;
 import com.mongodb.ReadPreference;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.Future;
@@ -448,25 +447,25 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     return mongo.findOne(collection, matcher == null ? new JsonObject() : matcher, keys)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .compose(res -> {
+        final Promise<JsonObject> replyPromise = Promise.promise();
         JsonObject reply = new JsonObject();
-        JsonArray fetch = message.body().getJsonArray("fetch");
-        final Promise<JsonObject> promise = Promise.promise();
         if (res == null) {
-          promise.complete(reply);
+          replyPromise.complete(reply);
         } else {
           reply.put("result", res);
+          JsonArray fetch = message.body().getJsonArray("fetch");
           if (fetch == null) {
-            promise.complete(reply);
+            replyPromise.complete(reply);
           } else {
             List<Future<?>> fetches = fetch.stream().map(attr -> {
               if (attr instanceof String) {
                 String f = (String) attr;
-                Object tmp = res.getValue(f);
+                JsonObject tmp = res.getJsonObject(f);
                 final Future<Void> onDbRefFetched;
-                if (tmp == null || !(tmp instanceof DBRef)) {
+                if (tmp == null || !(tmp.containsKey("$ref"))) {
                   onDbRefFetched = Future.succeededFuture();
                 } else {
-                  onDbRefFetched = fetchRef((DBRef) tmp)
+                  onDbRefFetched = fetchRef(tmp)
                     .onSuccess(fetched -> res.put(f, fetched))
                     .mapEmpty();
                 }
@@ -475,18 +474,19 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
                 return Future.succeededFuture(null);
               }
             }).collect(Collectors.toList());
-            Future.all(fetches).onSuccess(e -> promise.complete()).onFailure(promise::fail);
+            reply.put("result", res);
+            Future.join(fetches).onSuccess(e -> replyPromise.complete(reply)).onFailure(replyPromise::fail);
           }
         }
-        return promise.future();
+        return replyPromise.future();
       })
       .onSuccess(reply -> sendOK(message, reply))
       .mapEmpty();
   }
 
-  private Future<JsonObject> fetchRef(final DBRef ref){
-    final JsonObject query = new JsonObject().put("_id", ref.getId());
-    return mongo.findOne(ref.getCollectionName(), query, null);
+  private Future<JsonObject> fetchRef(final JsonObject ref){
+    final JsonObject query = new JsonObject().put("_id", ref.getString("$id"));
+    return mongo.findOne(ref.getString("$ref"), query, null);
   }
 
   private Future<Void> doFindAndModify(Message<JsonObject> message) {
