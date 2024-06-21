@@ -189,7 +189,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       return Future.succeededFuture();
     }
     String genID = generateId(doc);
-    // TODO vertx 4 change writeConcern by write_concern in config
     return mongo.saveWithOptions(collection, doc, getWriteConcern())
     .onSuccess(result -> {
       if (genID != null) {
@@ -417,6 +416,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
         return Future.failedFuture("Cannot handle type " + hint.getClass().getSimpleName());
       }
     }
+
     return mongo.findWithOptions(collection, matcher == null ? new JsonObject() : matcher, options)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .onSuccess(results -> message.reply(createBatchMessage("ok", results)))
