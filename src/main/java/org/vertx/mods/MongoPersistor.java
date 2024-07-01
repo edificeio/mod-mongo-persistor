@@ -16,7 +16,10 @@
 
 package org.vertx.mods;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -26,6 +29,10 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.streams.ReadStream;
 import io.vertx.ext.mongo.*;
+import io.vertx.ext.mongo.impl.codec.json.JsonObjectCodec;
+import org.bson.codecs.*;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
 import org.vertx.java.busmods.BusModBase;
 
 import java.util.*;
@@ -44,61 +51,19 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   protected String address;
   protected String host;
   protected int port;
-  protected String dbName;
-  protected String dbAuth;
   protected String username;
   protected String password;
   protected ReadPreference readPreference;
 
   protected MongoClient mongo;
-  //protected MongoDatabase db;
-  private boolean useMongoTypes;
-  private WriteOption defaultWriteConcern = WriteOption.ACKNOWLEDGED;
+  private WriteOption writeOption = WriteOption.ACKNOWLEDGED;
 
   @Override
   public void start() {
     super.start();
 
     address = getOptionalStringConfig("address", "vertx.mongopersistor");
-
-    // TODO Vertx4 set this as module config
-    /*host = getOptionalStringConfig("host", "localhost");
-    port = getOptionalIntConfig("port", 27017);
-    dbName = getOptionalStringConfig("db_name", "default_db");
-    dbAuth = getOptionalStringConfig("db_auth", "default_db");*/
-    username = getOptionalStringConfig("username", null);
-    password = getOptionalStringConfig("password", null);
-    readPreference = ReadPreference.valueOf(getOptionalStringConfig("read_preference", "primary"));
-    /*int poolSize = getOptionalIntConfig("pool_size", 10);
-    socketTimeout = getOptionalIntConfig("socket_timeout", 60000);
-    useSSL = getOptionalBooleanConfig("use_ssl", false);*/
-    useMongoTypes = getOptionalBooleanConfig("use_mongo_types", false);
-    defaultWriteConcern = WriteOption.valueOf(getOptionalStringConfig("write_concern", WriteOption.ACKNOWLEDGED.name()));
-
-    JsonArray seedsProperty = config.getJsonArray("seeds");
-
-      this.mongo = MongoClient.createShared(vertx, config);
-      /*MongoClientSettings.Builder builder = MongoClientSettings.builder();
-      builder.readPreference(readPreference)
-        .applyConnectionString(new ConnectionString(config.getString("db_url")));
-
-      final List<MongoCredential> credentials = new ArrayList<>();
-      if (username != null && password != null && dbAuth != null) {
-        credentials.add(MongoCredential.createScramSha1Credential(username, dbAuth, password.toCharArray()));
-      }
-
-      if (seedsProperty == null) {
-        ServerAddress address = new ServerAddress(host, port);
-        final MongoDriverInformation driverInformation = MongoDriverInformation.builder()
-          .driverName("com.mongodb.Mongo")
-          .build();
-        mongo = new MongoClientImpl(builder.build(), driverInformation);
-      } else {
-        List<ServerAddress> seeds = makeSeeds(seedsProperty);
-        mongo = new MongoClient(seeds, credentials, builder.build());
-      }
-
-      db = mongo.getDB(dbName);*/
+    this.mongo = MongoClient.createShared(vertx, config);
     eb.consumer(address, this);
   }
 
@@ -203,7 +168,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   }
 
   private @Nullable WriteOption getWriteConcern() {
-    return getWriteConcern(defaultWriteConcern);
+    return writeOption;
   }
   private @Nullable WriteOption getWriteConcern(final WriteOption defaultWriteConcern) {
     Optional<String> writeConcern = getStringConfig("writeConcern");
@@ -387,12 +352,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
 
     Object hint = message.body().getValue("hint");
     Object sort = message.body().getValue("sort");
-    // TODO Vertx4 check how read preferences can be handled with this client
-    // add read preference
-    /*final String overrideReadPreference = message.body().getString("read_preference");
-    if(overrideReadPreference != null){
-      coll.setReadPreference(ReadPreference.valueOf(overrideReadPreference));
-    }*/
     // call find
     final FindOptions options = new FindOptions();
     if (matcher != null && keys != null) {
@@ -438,12 +397,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     }
     JsonObject matcher = message.body().getJsonObject("matcher");
     JsonObject keys = message.body().getJsonObject("keys");
-    // add read preference
-    // TODO Vertx4 check how read preferences can be handled with this client
-    /*final String overrideReadPreference = message.body().getString("read_preference");
-    if(overrideReadPreference != null){
-      coll.setReadPreference(ReadPreference.valueOf(overrideReadPreference));
-    }*/
     return mongo.findOne(collection, matcher == null ? new JsonObject() : matcher, keys)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .compose(res -> {
@@ -499,27 +452,37 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     final JsonObject query = msgBody.getJsonObject("matcher");
     final JsonObject sort = msgBody.getJsonObject("sort");
     final JsonObject fields = msgBody.getJsonObject("fields");
-    // TODO vertx 4 check how to use that
-    //final JsonObject result = collection.findAndModify(query, fields, sort, remove,
-    //  update, returnNew, upsert);
-    boolean remove = msgBody.getBoolean("remove", false);
+    final FindOptions findOptions = new FindOptions().setSort(sort).setFields(fields);
     boolean returnNew = msgBody.getBoolean("new", false);
     boolean upsert = msgBody.getBoolean("upsert", false);
-
-    final FindOptions findOptions = new FindOptions().setSort(sort).setFields(fields);
     final UpdateOptions updateOptions = new UpdateOptions()
       .setReturningNewDocument(returnNew)
       .setUpsert(upsert);
-    return mongo.findOneAndUpdateWithOptions(collectionName, query, update, findOptions, updateOptions)
-      .onFailure(th -> sendError(message, th.getMessage(), th))
-      .onSuccess(res -> {
-        final JsonObject reply = new JsonObject();
-        if (res != null) {
-          reply.put("result", res);
-        }
-        sendOK(message, reply);
-      })
-      .mapEmpty();
+    boolean remove = msgBody.getBoolean("remove", false);
+
+    if (remove) {
+      return mongo.findOneAndDeleteWithOptions(collectionName, query, findOptions)
+              .onFailure(th -> sendError(message, th.getMessage(), th))
+              .onSuccess(res -> {
+                final JsonObject reply = new JsonObject();
+                if (res != null) {
+                  reply.put("result", res);
+                }
+                sendOK(message, reply);
+              })
+              .mapEmpty();
+    } else {
+      return mongo.findOneAndUpdateWithOptions(collectionName, query, update, findOptions, updateOptions)
+              .onFailure(th -> sendError(message, th.getMessage(), th))
+              .onSuccess(res -> {
+                final JsonObject reply = new JsonObject();
+                if (res != null) {
+                  reply.put("result", res);
+                }
+                sendOK(message, reply);
+              })
+              .mapEmpty();
+    }
   }
 
   private Future<Void> doCount(Message<JsonObject> message) {
@@ -529,12 +492,6 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     }
     final JsonObject matcher = message.body().getJsonObject("matcher");
 
-    // TODO Vertx4 check how read preferences can be handled with this client
-    // add read preference
-    /*final String overrideReadPreference = message.body().getString("read_preference");
-    if(overrideReadPreference != null){
-      coll.setReadPreference(ReadPreference.valueOf(overrideReadPreference));
-    }*/
     // call find
     return mongo.count(collection, matcher == null ? new JsonObject() : matcher)
       .onFailure(th -> sendError(message, th.getMessage(), th))
@@ -610,13 +567,12 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       .onSuccess(e -> sendOK(message, new JsonObject()));
   }
 
-  // TODO Vertx4 not sure it works
   private Future<Void> getCollectionStats(Message<JsonObject> message) {
     final String collection = getMandatoryString("collection", message);
     if (collection == null) {
       return Future.failedFuture("collection.name.mandatory");
     }
-    return mongo.runCommand("stats", new JsonObject())
+    return mongo.runCommand("collStats", new JsonObject().put("collStats", collection))
       .onFailure(th -> sendError(message, th))
       .onSuccess(stats -> {
         final JsonObject reply = new JsonObject().put("stats", stats);
@@ -645,7 +601,10 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       promise.complete();
     })
     .handler(results::add)
-    .exceptionHandler(th -> sendError(message, th)); // TODO Vertx4 check if this is a terminal operation
+    .exceptionHandler(th -> {
+      sendError(message, th);
+      mongo.close();
+    });
     return promise.future();
   }
 
