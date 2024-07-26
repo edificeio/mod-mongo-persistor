@@ -82,7 +82,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
       }
 
       if (username != null && password != null && dbAuth != null) {
-        MongoCredential credential = MongoCredential.createCredential(username, dbAuth, password.toCharArray());
+        MongoCredential credential = MongoCredential.createScramSha256Credential(username, dbAuth, password.toCharArray());
 
         if (seedsProperty == null) {
           ServerAddress address = new ServerAddress(host, port);
