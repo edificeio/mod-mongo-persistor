@@ -18,6 +18,7 @@ package org.vertx.mods;
 
 import com.mongodb.*;
 
+import com.mongodb.client.model.DBCollectionUpdateOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
@@ -283,27 +284,38 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
   }
 
   private void doUpdate(Message<JsonObject> message) {
+    // mongo collection
     String collection = getMandatoryString("collection", message);
     if (collection == null) {
       return;
     }
+    DBCollection coll = db.getCollection(collection);
+
+    // query criteria
     JsonObject criteriaJson = getMandatoryObject("criteria", message);
     if (criteriaJson == null) {
       return;
     }
     DBObject criteria = jsonToDBObject(criteriaJson);
 
+    // query arrayFilters (not mandatory)
+    JsonObject arrayFiltersJson = message.body().getJsonObject("arrayFilters");
+    DBObject arrayFilters = jsonToDBObject(arrayFiltersJson);
+
+    // new object for update
     JsonObject objNewJson = getMandatoryObject("objNew", message);
     if (objNewJson == null) {
       return;
     }
     DBObject objNew = jsonToDBObject(objNewJson);
-    Boolean upsert = message.body().getBoolean("upsert", false);
-    Boolean multi = message.body().getBoolean("multi", false);
-    DBCollection coll = db.getCollection(collection);
-    WriteConcern writeConcern = getWriteConcernWithPriority(message);
+
     try {
-      WriteResult res = coll.update(criteria, objNew, upsert, multi, writeConcern);
+      DBCollectionUpdateOptions updateOptions = new DBCollectionUpdateOptions()
+              .upsert(message.body().getBoolean("upsert", false))
+              .multi(message.body().getBoolean("multi", false))
+              .writeConcern(getWriteConcernWithPriority(message))
+              .arrayFilters(Collections.singletonList(arrayFilters));
+      WriteResult res = coll.update(criteria, objNew, updateOptions);
       JsonObject reply = new JsonObject();
       reply.put("number", res.getN());
       sendOK(message, reply);
