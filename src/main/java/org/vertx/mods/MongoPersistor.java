@@ -294,10 +294,10 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     DBObject criteria = jsonToDBObject(criteriaJson);
 
     // query arrayFilters (not mandatory)
-    JsonObject arrayFiltersJson = message.body().getJsonObject("arrayFilters");
-    List<DBObject> arrayFiltersList = null;
-    if (arrayFiltersJson != null) {
-      arrayFiltersList = Collections.singletonList(jsonToDBObject(arrayFiltersJson));
+    final List<DBObject> arrayFiltersList = new ArrayList<>();
+    JsonArray arrayFiltersJsonArray = message.body().getJsonArray("arrayFilters");
+    if (arrayFiltersJsonArray != null) {
+      arrayFiltersJsonArray.forEach(arrayFilter -> arrayFiltersList.add(jsonToDBObject((JsonObject) arrayFilter)));
     }
 
     // new object for update
