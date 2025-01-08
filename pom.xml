@@ -11,7 +11,7 @@
 
   <groupId>io.vertx</groupId>
   <artifactId>mod-mongo-persistor</artifactId>
-  <version>4.0-SNAPSHOT</version>
+  <version>4.0-develop-pedago-SNAPSHOT</version>
 
   <properties>
     <web-utils.version>3.2-SNAPSHOT</web-utils.version>
