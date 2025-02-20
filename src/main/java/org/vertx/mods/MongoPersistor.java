@@ -21,11 +21,13 @@ import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.streams.ReadStream;
 import io.vertx.ext.mongo.*;
+import io.vertx.ext.mongo.impl.config.MongoClientOptionsParser;
 import org.apache.commons.lang3.StringUtils;
 import org.vertx.java.busmods.BusModBase;
 
@@ -43,13 +45,9 @@ import java.util.stream.Collectors;
 public class MongoPersistor extends BusModBase implements Handler<Message<JsonObject>> {
 
   protected String address;
-  protected String host;
-  protected int port;
-  protected String username;
-  protected String password;
-  protected ReadPreference readPreference;
 
   protected MongoClient mongo;
+  protected MongoClient mongoPrimary;
   private WriteOption writeOption = WriteOption.ACKNOWLEDGED;
 
   @Override
@@ -57,7 +55,11 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     super.start();
 
     address = getOptionalStringConfig("address", "vertx.mongopersistor");
-    this.mongo = MongoClient.createShared(vertx, config);
+    final int poolSize = config.getInteger("pool_size", 10);
+    final int connectionsReservedForPrimary = config.getInteger("reserved_primary_pool_size", 2);
+    final int defaultPoolSize = Math.max(poolSize - connectionsReservedForPrimary, 2);
+    this.mongo = MongoClient.createShared(vertx, makeConfigurationForClient(config, defaultPoolSize, null, vertx), "default-mongo-ds");
+    this.mongoPrimary = MongoClient.createShared(vertx, makeConfigurationForClient(config, connectionsReservedForPrimary, ReadPreference.primary(), vertx), "primary-mongo-ds");
     eb.consumer(address, this);
   }
 
@@ -380,8 +382,8 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
         return Future.failedFuture("Cannot handle type " + hint.getClass().getSimpleName());
       }
     }
-
-    return mongo.findWithOptions(collection, matcher == null ? new JsonObject() : matcher, options)
+    final MongoClient client = getMongoClientForReadPreference(message.body().getString("read_preference"));
+    return client.findWithOptions(collection, matcher == null ? new JsonObject() : matcher, options)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .onSuccess(results -> message.reply(createBatchMessage("ok", results)))
       .mapEmpty();
@@ -402,7 +404,8 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     }
     JsonObject matcher = message.body().getJsonObject("matcher");
     JsonObject keys = message.body().getJsonObject("keys");
-    return mongo.findOne(collection, matcher == null ? new JsonObject() : matcher, keys)
+    final MongoClient client = getMongoClientForReadPreference(message.body().getString("read_preference"));
+    return client.findOne(collection, matcher == null ? new JsonObject() : matcher, keys)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .compose(res -> {
         final Promise<JsonObject> replyPromise = Promise.promise();
@@ -498,7 +501,8 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     final JsonObject matcher = message.body().getJsonObject("matcher");
 
     // call find
-    return mongo.count(collection, matcher == null ? new JsonObject() : matcher)
+    final MongoClient client = getMongoClientForReadPreference(message.body().getString("read_preference"));
+    return client.count(collection, matcher == null ? new JsonObject() : matcher)
       .onFailure(th -> sendError(message, th.getMessage(), th))
       .onSuccess(count -> {
         JsonObject reply = new JsonObject();
@@ -652,6 +656,36 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
 
   private Optional<String> getCommandName(final JsonObject command) {
     return command.fieldNames().stream().findFirst();
+  }
+
+  private MongoClient getMongoClientForReadPreference(String readPreference) {
+    final MongoClient clientToUseForReadPreference;
+    if("primary".equals(readPreference)) {
+      clientToUseForReadPreference = mongoPrimary;
+    } else {
+      clientToUseForReadPreference = mongo;
+    }
+    return clientToUseForReadPreference;
+  }
+
+  public static JsonObject makeConfigurationForClient(JsonObject originalConfig, int poolSize, final ReadPreference readPreference, final Vertx vertx) {
+    final JsonObject config = originalConfig.copy();
+    config.put("pool_size", poolSize);
+    if(readPreference != null) {
+      final MongoClientOptionsParser parser = new MongoClientOptionsParser(vertx, originalConfig);
+      final ReadPreference originalReadPreference = parser.settings().getReadPreference();
+      final String readPreferenceName = readPreference.getName();
+      if(readPreferenceName.equals(originalReadPreference.getName())) {
+        logger.warn("Configured read preference is already primary so both default and primary client are equivalent");
+      } else {
+        config.put("readPreference", readPreferenceName);
+        config.put("read_preference", readPreferenceName);
+        final String connectionString = config.getString("connection_string", "");
+        final String newConnectionString = connectionString.replace("readPreference="+originalReadPreference.getName(), "readPreference="+readPreferenceName);
+        config.put("connection_string", newConnectionString);
+      }
+    }
+    return config;
   }
 
 }
