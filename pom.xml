@@ -14,7 +14,7 @@
   <version>4.0-SNAPSHOT</version>
 
   <properties>
-    <web-utils.version>3.1-SNAPSHOT</web-utils.version>
+    <web-utils.version>3.2-SNAPSHOT</web-utils.version>
     <jacksonDatabindVersion>2.15.2</jacksonDatabindVersion>
     <mongo.version>4.8.1</mongo.version>
   </properties>
