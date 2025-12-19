@@ -60,7 +60,7 @@ public class MongoPersistor extends BusModBase implements Handler<Message<JsonOb
     final int defaultPoolSize = Math.max(poolSize - connectionsReservedForPrimary, 2);
     this.mongo = MongoClient.createShared(vertx, makeConfigurationForClient(config, defaultPoolSize, null, vertx), "default-mongo-ds");
     this.mongoPrimary = MongoClient.createShared(vertx, makeConfigurationForClient(config, connectionsReservedForPrimary, ReadPreference.primary(), vertx), "primary-mongo-ds");
-    eb.consumer(address, this);
+    eb.localConsumer(address, this);
   }
 
   @Override
