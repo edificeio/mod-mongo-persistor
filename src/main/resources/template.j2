@@ -1,0 +1,43 @@
+{
+  "name": "io.vertx~mod-mongo-persistor",
+  "waitDeploy" : true,
+	"worker": false,
+  "config": {
+    "username": "{{ mongoUser }}",
+    "password": "{{ mongoPassword }}",
+    "authSource": "{{ dbName }}",
+    "authMechanism": "SCRAM-SHA-1",
+    "connection_string": "{{ mongoConnectionString }}",
+    "address": "wse.mongodb.persistor",
+    "seeds": [ {{ mongoSeeds }} ],
+    "db_name": "{{ dbName }}",
+    "use_mongo_types": true,
+    "use_ssl": {{ mongoUseSsl  | default('true') }},
+    {% if (mongoReadPreference is defined and mongoReadPreference) or (inventory_hostname_short is defined and inventory_hostname_short == 'jobs') %}
+    "read_preference": "nearest",
+    {% endif %}
+    {% if inventory_hostname_short is defined and inventory_hostname_short == 'jobs' %}"socket_timeout": {{ mongoSocketTimeout  | default('30000') }},{% endif %}
+    "pool_size": {{ mongoPoolSize  | default('50') }}
+  }
+}
+{% if (mongoReadPreference is defined and mongoReadPreference) %}
+, {
+    "name": "io.vertx~mod-mongo-persistor",
+    "waitDeploy" : true,
+    "worker": false,
+    "config": {
+      "username": "{{ mongoUser }}",
+      "password": "{{ mongoPassword }}",
+      "authSource": "{{ dbName }}",
+      "authMechanism": "SCRAM-SHA-1",
+      "connection_string": "{{ mongoConnectionString }}",
+      "address": "wse.mongodb.persistor2",
+      "seeds": [ {{ mongoSeeds }} ],
+      "db_name": "{{ dbName }}",
+      "use_mongo_types": true,
+      "use_ssl": {{ mongoUseSsl  | default('true') }},
+      {% if inventory_hostname_short is defined and inventory_hostname_short == 'jobs' %}"socket_timeout": {{ mongoSocketTimeout  | default('30000') }},{% endif %}
+      "pool_size": {{ mongoPoolSize  | default('50') }}
+    }
+  }
+{% endif %}
