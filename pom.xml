@@ -14,7 +14,7 @@
   <version>4.1-develop-pedago-SNAPSHOT</version>
 
   <properties>
-    <web-utils.version>3.3-SNAPSHOT</web-utils.version>
+    <web-utils.version>3.3-develop-pedago-SNAPSHOT</web-utils.version>
     <jacksonDatabindVersion>2.15.2</jacksonDatabindVersion>
     <mongo.version>4.8.1</mongo.version>
   </properties>
