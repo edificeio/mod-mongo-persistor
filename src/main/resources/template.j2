@@ -20,7 +20,7 @@
     "seeds": [ {{ mongoSeeds }} ],
     "db_name": "{{dbName}}",
     "use_mongo_types": true,
-    "use_ssl": ${mongoUseSsl:true},
+    "use_ssl": {{mongoUseSsl | default(true)}},
     {% if (mongoReadPreference is defined) %}
     "read_preference": "{{mongoReadPreference}}",
     {% endif %}
