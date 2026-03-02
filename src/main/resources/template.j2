@@ -18,9 +18,9 @@
     "connection_string": "{{mongoConnectionString}}",
     "address": "wse.mongodb.persistor",
     "seeds": [ {{ mongoSeeds }} ],
-    "db_name": "{{dbName}}",
+    "db_name": "{{mongoDbName}}",
     "use_mongo_types": true,
-    "use_ssl": {{mongoUseSsl | default(true)}},
+    "use_ssl": {{mongoUseSsl | default('true')}},
     {% if (mongoReadPreference is defined) %}
     "read_preference": "{{mongoReadPreference}}",
     {% endif %}
