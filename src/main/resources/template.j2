@@ -12,12 +12,14 @@
     {% if mongoAuthSource is defined %}
     "authSource": "{{mongoAuthSource}}",
     {% endif %}
-    {% if mongoAuthSource is defined %}
-    "authMechanism": "{{mongoAuthSource}}",
+    {% if mongoAuthMechanism is defined %}
+    "authMechanism": "{{mongoAuthMechanism}}",
     {% endif %}
     "connection_string": "{{mongoConnectionString}}",
     "address": "wse.mongodb.persistor",
+    {% if mongoSeeds %}
     "seeds": [ {{ mongoSeeds }} ],
+    {% endif %}
     "db_name": "{{mongoDbName}}",
     "use_mongo_types": true,
     "use_ssl": {{mongoUseSsl | default('true')}},
