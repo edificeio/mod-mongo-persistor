@@ -15,12 +15,20 @@
     {% if mongoAuthMechanism is defined %}
     "authMechanism": "{{mongoAuthMechanism}}",
     {% endif %}
+    {% if mongoConnectionString %}
     "connection_string": "{{mongoConnectionString}}",
+    {% endif %}
     "address": "wse.mongodb.persistor",
     {% if mongoSeeds %}
     "seeds": [ {{ mongoSeeds }} ],
     {% endif %}
     "db_name": "{{mongoDbName}}",
+    {% if mongoHost %}
+    "mongoHost": "{{ mongoHost }}",
+    {% endif %}
+    {% if mongoPort %}
+    "mongoPort": "{{ mongoPort }}",
+    {% endif %}
     "use_mongo_types": true,
     "use_ssl": {{mongoUseSsl | default('true')}},
     {% if (mongoReadPreference is defined) %}
