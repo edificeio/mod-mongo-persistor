@@ -1,42 +1,42 @@
-{
-  "name": "io.vertx~mod-mongo-persistor",
-  "waitDeploy" : true,
-	"worker": false,
-  "config": {
-    {% if mongoUser is defined %}
-    "username": "{{mongoUser}}",
-    {% endif %}
-    {% if mongoPassword is defined %}
-    "password": "{{ mongoPassword }}",
-    {% endif %}
-    {% if mongoAuthSource is defined %}
-    "authSource": "{{mongoAuthSource}}",
-    {% endif %}
-    {% if mongoAuthMechanism is defined %}
-    "authMechanism": "{{mongoAuthMechanism}}",
-    {% endif %}
-    {% if mongoConnectionString %}
-    "connection_string": "{{mongoConnectionString}}",
-    {% endif %}
-    "address": "wse.mongodb.persistor",
-    {% if mongoSeeds %}
-    "seeds": [ {{ mongoSeeds }} ],
-    {% endif %}
-    "db_name": "{{mongoDbName}}",
-    {% if mongoHost %}
-    "mongoHost": "{{ mongoHost }}",
-    {% endif %}
-    {% if mongoPort %}
-    "mongoPort": "{{ mongoPort }}",
-    {% endif %}
-    "use_mongo_types": true,
-    "use_ssl": {{mongoUseSsl | default('true')}},
-    {% if (mongoReadPreference is defined) %}
-    "read_preference": "{{mongoReadPreference}}",
-    {% endif %}
-    {% if mongoSocketTimeout is defined %}
-    "socket_timeout": {{ mongoSocketTimeout  | default('30000') }},
-    {% endif %}
-    "pool_size": {{ mongoPoolSize  | default('4') }}
-  }
-}
+    {
+      "name": "io.vertx~mod-mongo-persistor",
+      "waitDeploy" : true,
+        "worker": false,
+      "config": {
+        {% if mongoUser is defined %}
+        "username": "{{mongoUser}}",
+        {% endif %}
+        {% if mongoPassword is defined %}
+        "password": "{{ mongoPassword }}",
+        {% endif %}
+        {% if mongoAuthSource is defined %}
+        "authSource": "{{mongoAuthSource}}",
+        {% endif %}
+        {% if mongoAuthMechanism is defined %}
+        "authMechanism": "{{mongoAuthMechanism}}",
+        {% endif %}
+        {% if mongoConnectionString %}
+        "connection_string": "{{mongoConnectionString}}",
+        {% endif %}
+        "address": "wse.mongodb.persistor",
+        {% if mongoSeeds %}
+        "seeds": [ {{ mongoSeeds }} ],
+        {% endif %}
+        "db_name": "{{mongoDbName}}",
+        {% if mongoHost %}
+        "host": "{{ mongoHost }}",
+        {% endif %}
+        {% if mongoPort %}
+        "port": {{ mongoPort }},
+        {% endif %}
+        "use_mongo_types": true,
+        "use_ssl": {{mongoUseSsl | default('true')}},
+        {% if (mongoReadPreference is defined) %}
+        "read_preference": "{{mongoReadPreference}}",
+        {% endif %}
+        {% if mongoSocketTimeout is defined %}
+        "socket_timeout": {{ mongoSocketTimeout  | default('30000') }},
+        {% endif %}
+        "pool_size": {{ mongoPoolSize  | default('4') }}
+      }
+    }
